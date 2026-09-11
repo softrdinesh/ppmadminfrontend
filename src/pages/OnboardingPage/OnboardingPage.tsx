@@ -127,6 +127,78 @@ interface ApiSprintGroup {
 
 
 
+// ✅ NEW: GetSprintInfoList API types
+interface ApiSprintInfoLookup {
+  id: number;
+  title: string;
+  key: string; // USR | DDL | LBL | FLE | TXT | DPK | NUM
+}
+
+interface ApiSprintInfoColumn {
+  additionalColumnID: number;
+  colname: string;
+  typeID: number;
+  dynamicColumnTypeInfo: string;
+  lookups: ApiSprintInfoLookup;
+}
+
+interface ApiSprintInfoDetail {
+  sprintID: number;
+  name: string;
+  goals: string;
+  sprinttimelinestart: string;
+  sprinttimelineend: string;
+  sprintstatus: string;
+  sprintTimeElapsedinSeconds: number;
+  completedate: string;
+  isSprintComplete: number;
+  isSprintActive: number;
+  dynamicColumnList: unknown | null;
+}
+
+interface ApiSprintInfoDropdownValue {
+  dynamicddlID: number;
+  valueText: string;
+}
+
+interface ApiSprintInfoUserValue {
+  userID: number;
+  username: string;
+  email: string;
+}
+
+interface ApiSprintInfoStatusValue {
+  statusID: number;
+  statustext: string;
+}
+
+interface ApiSprintInfoColumnValue {
+  additionalColumnID: number;
+  colname: string;
+  typeID: number;
+  dynamicColumnTypeInfo: string;
+  sprintWorkspaceID: number;
+  dynamicColumnValues: string;
+  dynamicUserID: number;
+  dynamicDropDownID: string;
+  statusID: number;
+  displayText: string;
+  sprintID: number;
+  dynamicDropdownValueList: ApiSprintInfoDropdownValue[];
+  dynamicUserValueList: ApiSprintInfoUserValue[];
+  dynamicStatusValueList: ApiSprintInfoStatusValue[];
+}
+
+interface ApiSprintInfoGroup {
+  colList: ApiSprintInfoColumn[];
+  detailList: ApiSprintInfoDetail[];
+  colvalueList: ApiSprintInfoColumnValue[];
+}
+
+type ApiSprintInfoResponse = ApiSprintInfoGroup[];
+
+
+
 interface ApiBugGroup {
   bugGroupID: number;
   groupname: string;
@@ -865,6 +937,8 @@ const BUG_GROUP_LIST_API_URL = `${apiUrl1}GetBuggroupList`;
 const BUG_INFO_LIST_API_URL = `${apiUrl1}GetBugInfoList`;
 // ✅ NEW: Sprint Group API (returns groups for a workspace)
 const SPRINT_GROUP_API_URL = `http://localhost:8080/api/sprint-group`;
+// ✅ NEW: GetSprintInfoList API
+const SPRINT_INFO_API_URL = `${apiUrl1}GetSprintInfoList`;
 const AVATAR_COLORS = [
   "#1878b2", "#0ea5e9", "#f59e0b", "#10b981", "#f43f5e",
   "#8b5cf6", "#14b8a6", "#ec4899", "#f97316", "#06b6d4",
@@ -1471,6 +1545,174 @@ const getTaskColumnValue = (
 
 
 
+// ✅ NEW: Merged sprint-info column builder
+interface MergedSprintInfoColumn {
+  key: string;
+  id: number;
+  name: string;
+  keyname: string;
+  isCore: boolean;
+}
+
+const SPRINT_INFO_CORE_COLUMN_IDS = {
+  SPRINT_NAME: -3001,
+  GOALS: -3002,
+  SPRINT_TIMELINE: -3003,
+  SPRINT_STATUS: -3004,
+} as const;
+
+const buildMergedSprintInfoColumns = (
+  dynamicColumns: ApiSprintInfoColumn[]
+): MergedSprintInfoColumn[] => {
+  const coreColumns: MergedSprintInfoColumn[] = [
+    { key: "core:sprintName",     id: SPRINT_INFO_CORE_COLUMN_IDS.SPRINT_NAME,     name: "Sprint",          keyname: "SPRINT_NAME",     isCore: true },
+    { key: "core:goals",          id: SPRINT_INFO_CORE_COLUMN_IDS.GOALS,           name: "Goals",           keyname: "GOALS",           isCore: true },
+    { key: "core:sprintTimeline", id: SPRINT_INFO_CORE_COLUMN_IDS.SPRINT_TIMELINE, name: "Sprint Timeline", keyname: "SPRINT_TIMELINE", isCore: true },
+    { key: "core:sprintStatus",   id: SPRINT_INFO_CORE_COLUMN_IDS.SPRINT_STATUS,   name: "Status",          keyname: "SPRINT_STATUS",   isCore: true },
+  ];
+
+  const dynamicMapped: MergedSprintInfoColumn[] = dynamicColumns.map((col) => ({
+    key: `dyn:${col.additionalColumnID}`,
+    id: col.additionalColumnID,
+    name: col.colname || "Column",
+    keyname: (col.lookups?.key || "").toUpperCase(),
+    isCore: false,
+  }));
+
+  return [...coreColumns, ...dynamicMapped];
+};
+
+// ✅ NEW: Sprint-info column value renderer
+const getSprintInfoColumnValue = (
+  sprint: ApiSprintInfoDetail,
+  column: MergedSprintInfoColumn,
+  colValue: ApiSprintInfoColumnValue | undefined,
+  helpers: {
+    getStatusColor: (s: string) => string;
+    isDark: boolean;
+    isMobile: boolean;
+    onFileClick?: FileClickHandler;
+  }
+): React.ReactNode => {
+  const { getStatusColor, isDark, isMobile, onFileClick } = helpers;
+
+  if (column.isCore) {
+    switch (column.keyname) {
+      case "SPRINT_NAME":
+        return (
+          <Typography sx={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: isDark ? "#ffffff" : "#0f172a" }}>
+            {sprint.name || "Untitled Sprint"}
+          </Typography>
+        );
+
+      case "GOALS":
+        return (
+          <Typography sx={{ fontSize: isMobile ? 11 : 13, color: isDark ? "#cbd5e1" : "#334155", lineHeight: 1.5, whiteSpace: "normal" }}>
+            {sprint.goals || "—"}
+          </Typography>
+        );
+
+      case "SPRINT_TIMELINE": {
+        const start = sprint.sprinttimelinestart || "—";
+        const end = sprint.sprinttimelineend || "—";
+        return (
+          <Stack direction="row" alignItems="center" spacing={0.75}>
+            <Icon icon="lucide:calendar" style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#64748b" }} />
+            <Typography sx={{ fontSize: isMobile ? 11 : 12, color: isDark ? "#e2e8f0" : "#1e293b", fontWeight: 500 }}>
+              {start} - {end}
+            </Typography>
+          </Stack>
+        );
+      }
+
+      case "SPRINT_STATUS": {
+        const label = sprint.sprintstatus || "—";
+        const color = getStatusColor(label);
+        return (
+          <Chip label={label} size="small" sx={{ bgcolor: alpha(color, 0.15), color: color, fontWeight: 700, fontSize: isMobile ? 10 : 11, height: 24, borderRadius: "6px", "& .MuiChip-label": { px: 1 } }} />
+        );
+      }
+
+      default:
+        return <Typography sx={{ fontSize: 12 }}>—</Typography>;
+    }
+  }
+
+  if (!colValue) {
+    return <Typography sx={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8" }}>—</Typography>;
+  }
+
+  switch (column.keyname) {
+    case "USR": {
+      const users = colValue.dynamicUserValueList || [];
+      if (users.length === 0) return <Typography sx={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8" }}>—</Typography>;
+      return (
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Avatar sx={{ width: 26, height: 26, bgcolor: isDark ? "#334155" : "#cbd5e1", fontSize: 11, fontWeight: 700, color: isDark ? "#e2e8f0" : "#0f172a" }}>
+            {users[0].username.charAt(0).toUpperCase()}
+          </Avatar>
+          <Typography sx={{ fontSize: isMobile ? 11 : 13, color: isDark ? "#e2e8f0" : "#1e293b" }}>{users[0].username}</Typography>
+        </Stack>
+      );
+    }
+
+    case "DDL": {
+      const ddls = colValue.dynamicDropdownValueList || [];
+      if (ddls.length === 0) return <Typography sx={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8" }}>—</Typography>;
+      return (
+        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+          {ddls.map((d) => (
+            <Chip key={d.dynamicddlID} label={d.valueText} size="small" sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.12), color: PRIMARY_COLOR, fontWeight: 600, fontSize: isMobile ? 10 : 11, height: 22, borderRadius: "6px" }} />
+          ))}
+        </Stack>
+      );
+    }
+
+    case "LBL": {
+      const statuses = colValue.dynamicStatusValueList || [];
+      if (statuses.length === 0) return <Typography sx={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8" }}>—</Typography>;
+      const label = statuses[0].statustext;
+      const color = getStatusColor(label);
+      return <Chip label={label} size="small" sx={{ bgcolor: alpha(color, 0.15), color: color, fontWeight: 700, fontSize: isMobile ? 10 : 11, height: 24, borderRadius: "6px" }} />;
+    }
+
+    case "FLE": {
+      const fileUrl = colValue.dynamicColumnValues;
+      const displayName = colValue.displayText || "File";
+      if (!fileUrl) return <Typography sx={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8" }}>—</Typography>;
+      const imageFile = isImageUrl(fileUrl);
+      return (
+        <Button
+          size="small"
+          onClick={(e) => { e.stopPropagation(); onFileClick?.({ title: displayName, url: fileUrl }); }}
+          startIcon={<Icon icon={imageFile ? "lucide:image" : "lucide:file"} style={{ fontSize: 14 }} />}
+          sx={{
+            textTransform: "none", fontSize: 11, fontWeight: 600, color: PRIMARY_COLOR,
+            px: 0.75, py: 0.25, minWidth: 0, borderRadius: "6px", transition: "all 0.25s ease",
+            "&:hover": { color: PRIMARY_DARK, backgroundColor: alpha(PRIMARY_COLOR, 0.1), transform: "translateY(-1px)" },
+          }}
+        >
+          {displayName}
+        </Button>
+      );
+    }
+
+    case "TXT":
+      return <Typography sx={{ fontSize: isMobile ? 11 : 13, color: isDark ? "#e2e8f0" : "#1e293b" }}>{colValue.dynamicColumnValues || colValue.displayText || "—"}</Typography>;
+
+    case "DPK":
+      return <Typography sx={{ fontSize: isMobile ? 11 : 13, color: isDark ? "#e2e8f0" : "#1e293b" }}>{colValue.dynamicColumnValues || colValue.displayText || "—"}</Typography>;
+
+    case "NUM":
+      return <Typography sx={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: isDark ? "#ffffff" : "#0f172a" }}>{colValue.dynamicColumnValues || "0"}</Typography>;
+
+    default:
+      return <Typography sx={{ fontSize: isMobile ? 11 : 13, color: isDark ? "#e2e8f0" : "#1e293b" }}>{colValue.dynamicColumnValues || colValue.displayText || "—"}</Typography>;
+  }
+};
+
+
+
 const getProfessionalTableStyles = (isDark: boolean) => ({
   container: {
     border: "1px solid",
@@ -1728,6 +1970,11 @@ export default function DashboardPage() {
   const [sprintGroupsLoading, setSprintGroupsLoading] = useState<boolean>(false);
   const [sprintGroupsError, setSprintGroupsError] = useState<string | null>(null);
 
+  // ✅ NEW: GetSprintInfoList state
+  const [sprintInfoData, setSprintInfoData] = useState<Record<number, ApiSprintInfoGroup>>({});
+  const [sprintInfoLoading, setSprintInfoLoading] = useState<Record<number, boolean>>({});
+  const [sprintInfoError, setSprintInfoError] = useState<Record<number, string | null>>({});
+
   const [sprintTaskInfo, setSprintTaskInfo] = useState<Record<number, ApiSprintTaskInfoGroup>>({});
   const [sprintTaskInfoLoading, setSprintTaskInfoLoading] = useState<Record<number, boolean>>({});
   const [sprintTaskInfoError, setSprintTaskInfoError] = useState<Record<number, string | null>>({});
@@ -1736,6 +1983,7 @@ export default function DashboardPage() {
   const [sprintDynamicColumnsLoading, setSprintDynamicColumnsLoading] = useState<Record<number, boolean>>({});
   const [sprintDynamicColumnsError, setSprintDynamicColumnsError] = useState<Record<number, string | null>>({});
 console.log(sprintTaskInfoError,);
+
   const [bugGroups, setBugGroups] = useState<ApiBugGroup[]>([]);
   const [bugGroupsLoading, setBugGroupsLoading] = useState<boolean>(false);
   const [bugGroupsError, setBugGroupsError] = useState<string | null>(null);
@@ -1965,6 +2213,71 @@ console.log(sprintTaskInfoError,);
 
     fetchSprintGroups();
   }, [selectedWorkspace, refreshTrigger]);
+
+  // ✅ NEW: Fetch GetSprintInfoList for a given SprintGroupID
+  const fetchSprintInfo = async (sprintGroupID: number) => {
+    if (!sprintGroupID || isNaN(sprintGroupID)) {
+      console.warn("Invalid SprintGroupID for sprint info:", sprintGroupID);
+      return;
+    }
+
+    setSprintInfoLoading((prev) => ({ ...prev, [sprintGroupID]: true }));
+    setSprintInfoError((prev) => ({ ...prev, [sprintGroupID]: null }));
+
+    try {
+      const response = await axios.get<ApiSprintInfoResponse>(
+        `${SPRINT_INFO_API_URL}?SprintGroupID=${sprintGroupID}`
+      );
+
+      const raw = response.data as any;
+      const groupData: ApiSprintInfoGroup | undefined = Array.isArray(raw)
+        ? raw[0]
+        : raw?.data?.[0] || raw?.data || raw;
+
+      if (!groupData) {
+        setSprintInfoData((prev) => ({
+          ...prev,
+          [sprintGroupID]: { colList: [], detailList: [], colvalueList: [] },
+        }));
+        return;
+      }
+
+      setSprintInfoData((prev) => ({
+        ...prev,
+        [sprintGroupID]: {
+          colList: groupData.colList || [],
+          detailList: groupData.detailList || [],
+          colvalueList: groupData.colvalueList || [],
+        },
+      }));
+    } catch (err) {
+      console.error(`Failed to fetch sprint info for group ${sprintGroupID}:`, err);
+      setSprintInfoError((prev) => ({
+        ...prev,
+        [sprintGroupID]: err instanceof Error ? err.message : "Failed to load sprint info",
+      }));
+      setSprintInfoData((prev) => ({
+        ...prev,
+        [sprintGroupID]: { colList: [], detailList: [], colvalueList: [] },
+      }));
+    } finally {
+      setSprintInfoLoading((prev) => ({ ...prev, [sprintGroupID]: false }));
+    }
+  };
+
+  // ✅ NEW: Auto-fetch GetSprintInfoList whenever sprintGroups changes
+  useEffect(() => {
+    setSprintInfoData({});
+    setSprintInfoLoading({});
+    setSprintInfoError({});
+
+    if (sprintGroups.length === 0) return;
+
+    sprintGroups.forEach((g) => {
+      fetchSprintInfo(g.SprintGroupID);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sprintGroups, refreshTrigger]);
 
   // Fetch bug groups
   useEffect(() => {
@@ -2499,6 +2812,10 @@ const handleSprintClick = (sprint: Sprint) => {
     setSprintGroups([]);
     setSprintGroupsLoading(false);
     setSprintGroupsError(null);
+    // ✅ NEW: reset sprint info state
+    setSprintInfoData({});
+    setSprintInfoLoading({});
+    setSprintInfoError({});
     setBugGroups([]);
     setBugGroupsError(null);
     setBugInfo({});
@@ -2541,6 +2858,10 @@ const handleSprintClick = (sprint: Sprint) => {
     setSprintGroups([]);
     setSprintGroupsLoading(false);
     setSprintGroupsError(null);
+    // ✅ NEW: reset sprint info state
+    setSprintInfoData({});
+    setSprintInfoLoading({});
+    setSprintInfoError({});
     setProjectTasks([]);
   };
 
@@ -3366,59 +3687,72 @@ const renderSprintTableForWorkspace = () => {
   const effectiveLoading = usingSprintGroups ? sprintGroupsLoading : sprintTaskGroupInfoLoading;
   const effectiveError = usingSprintGroups ? sprintGroupsError : sprintTaskGroupInfoError;
 
-  
-  const sprints: Array<{
-    taskGroupID: number;
-    sprintname?: string;
-    groupname?: string;
-    sprintGoals?: string;
-    sprintTimeLineStart?: string;
-    sprintTimelineEnd?: string;
-  }> = usingSprintGroups
-    ? sprintGroups.map((g) => {
-        // ✅ FIX: Show group name as primary display; keep sprintname as fallback.
-        const match = (sprintTaskGroupInfo || []).find(
-          (info) => info.taskGroupID === g.SprintGroupID
-        );
-        return {
-          taskGroupID: g.SprintGroupID,
-          sprintname: match?.sprintname || "",
-          groupname: g.GroupName,
-          sprintGoals: match?.sprintGoals,
-          sprintTimeLineStart: match?.sprintTimeLineStart,
-          sprintTimelineEnd: match?.sprintTimelineEnd,
-        };
-      })
-    : (sprintTaskGroupInfo || []);
-
-  // Loading state
-  if (effectiveLoading) {
-    return (
-      <Box>
-        <Paper
-          elevation={0}
-          sx={{
-            p: isMobile ? 2 : 3, mb: 3, borderRadius: 3,
-            border: "1px solid",
-            borderColor: isDark ? "#1e293b" : "#e2e8f0",
-            bgcolor: isDark ? "#0B1220" : "#ffffff",
-          }}
+  // Header bar (shared)
+  const header = (
+    <Slide in timeout={500} direction="down">
+      <Paper
+        elevation={0}
+        sx={{
+          p: isMobile ? 2 : 3, mb: 3, borderRadius: 3,
+          border: "1px solid",
+          borderColor: isDark ? "#1e293b" : "#e2e8f0",
+          bgcolor: isDark ? "#0B1220" : "#ffffff",
+          position: "relative", overflow: "hidden",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0, left: 0, right: 0, height: "3px",
+            background: `linear-gradient(90deg, ${PRIMARY_COLOR}, ${alpha(PRIMARY_COLOR, 0.3)}, transparent)`,
+          },
+        }}
+      >
+        <Stack
+          direction={isMobile ? "column" : "row"}
+          alignItems={isMobile ? "flex-start" : "center"}
+          justifyContent="space-between"
+          flexWrap="wrap"
+          gap={2}
         >
           <Stack direction="row" alignItems="center" spacing={2}>
             <IconButton
               onClick={handleBackToWorkspaces}
               sx={{
                 color: isDark ? "#94a3b8" : "#64748b",
-                "&:hover": { color: PRIMARY_COLOR, backgroundColor: alpha(PRIMARY_COLOR, 0.1) },
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  transform: "scale(1.15) rotate(-10deg)",
+                  color: PRIMARY_COLOR,
+                  backgroundColor: alpha(PRIMARY_COLOR, 0.1),
+                },
               }}
             >
               <Icon icon="lucide:arrow-left" style={{ fontSize: 22 }} />
             </IconButton>
-            <Typography sx={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: isDark ? "#ffffff" : "#0f172a" }}>
-              Sprints
-            </Typography>
+            <Box>
+              <Typography
+                sx={{
+                  fontSize: isMobile ? 18 : 24,
+                  fontWeight: 700,
+                  color: isDark ? "#ffffff" : "#0f172a",
+                  lineHeight: 1.2,
+                }}
+              >
+                Sprints
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: isDark ? "#94a3b8" : "#64748b", mt: 0.5 }}>
+                {selectedWorkspace.workspaceName} • {selectedWorkspace.organizationname}
+              </Typography>
+            </Box>
           </Stack>
-        </Paper>
+        </Stack>
+      </Paper>
+    </Slide>
+  );
+
+  if (effectiveLoading) {
+    return (
+      <Box>
+        {header}
         <Box sx={{ py: 6, textAlign: "center" }}>
           <CircularProgress size={28} sx={{ color: PRIMARY_COLOR }} />
           <Typography sx={{ fontSize: 13, color: isDark ? "#94a3b8" : "#64748b", mt: 2 }}>
@@ -3429,34 +3763,10 @@ const renderSprintTableForWorkspace = () => {
     );
   }
 
-  // Error state
   if (effectiveError) {
     return (
       <Box>
-        <Paper
-          elevation={0}
-          sx={{
-            p: isMobile ? 2 : 3, mb: 3, borderRadius: 3,
-            border: "1px solid",
-            borderColor: isDark ? "#1e293b" : "#e2e8f0",
-            bgcolor: isDark ? "#0B1220" : "#ffffff",
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <IconButton
-              onClick={handleBackToWorkspaces}
-              sx={{
-                color: isDark ? "#94a3b8" : "#64748b",
-                "&:hover": { color: PRIMARY_COLOR, backgroundColor: alpha(PRIMARY_COLOR, 0.1) },
-              }}
-            >
-              <Icon icon="lucide:arrow-left" style={{ fontSize: 22 }} />
-            </IconButton>
-            <Typography sx={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: isDark ? "#ffffff" : "#0f172a" }}>
-              Sprintsss
-            </Typography>
-          </Stack>
-        </Paper>
+        {header}
         <Box sx={{ textAlign: "center", py: 6 }}>
           <Icon icon="lucide:alert-circle" style={{ fontSize: 48, color: "#ef4444" }} />
           <Typography sx={{ color: "#ef4444", mt: 2 }}>Failed to load sprints</Typography>
@@ -3466,6 +3776,7 @@ const renderSprintTableForWorkspace = () => {
     );
   }
 
+  // ✅ Render one table PER sprint group using GetSprintInfoList data
   return (
     <Box
       sx={{
@@ -3476,318 +3787,197 @@ const renderSprintTableForWorkspace = () => {
         boxSizing: "border-box",
       }}
     >
-      {/* Header Bar */}
-      <Slide in timeout={500} direction="down">
-        <Paper
-          elevation={0}
-          sx={{
-            p: isMobile ? 2 : 3, mb: 3, borderRadius: 3,
-            border: "1px solid",
-            borderColor: isDark ? "#1e293b" : "#e2e8f0",
-            bgcolor: isDark ? "#0B1220" : "#ffffff",
-            position: "relative", overflow: "hidden",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              top: 0, left: 0, right: 0, height: "3px",
-              background: `linear-gradient(90deg, ${PRIMARY_COLOR}, ${alpha(PRIMARY_COLOR, 0.3)}, transparent)`,
-            },
-          }}
-        >
-          <Stack
-            direction={isMobile ? "column" : "row"}
-            alignItems={isMobile ? "flex-start" : "center"}
-            justifyContent="space-between"
-            flexWrap="wrap"
-            gap={2}
-          >
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <IconButton
-                onClick={handleBackToWorkspaces}
-                sx={{
-                  color: isDark ? "#94a3b8" : "#64748b",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: "scale(1.15) rotate(-10deg)",
-                    color: PRIMARY_COLOR,
-                    backgroundColor: alpha(PRIMARY_COLOR, 0.1),
-                  },
-                }}
-              >
-                <Icon icon="lucide:arrow-left" style={{ fontSize: 22 }} />
-              </IconButton>
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: isMobile ? 18 : 24,
-                    fontWeight: 700,
-                    color: isDark ? "#ffffff" : "#0f172a",
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {sprints.length > 0
-                    ? sprints[0].groupname || sprints[0].sprintname || "Sprints"
-                    : "Sprints"}
-                </Typography>
-                <Typography sx={{ fontSize: 13, color: isDark ? "#94a3b8" : "#64748b", mt: 0.5 }}>
-                  {selectedWorkspace.workspaceName} • {selectedWorkspace.organizationname}
-                </Typography>
-              </Box>
-            </Stack>
+      {header}
 
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Box sx={{ textAlign: "center" }}>
-                <Typography
-                  sx={{
-                    fontSize: 10,
-                    color: isDark ? "#64748b" : "#94a3b8",
-                    fontWeight: 600,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Total Sprints
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: isMobile ? 18 : 22,
-                    fontWeight: 700,
-                    color: PRIMARY_COLOR,
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {sprints.length}
-                </Typography>
-              </Box>
-            </Stack>
-          </Stack>
-        </Paper>
-      </Slide>
-
-      {/* Sprints Table - matches the screenshot design */}
-      <Fade in timeout={600}>
-        <Box
-          sx={{
-            width: "100%",
-            maxWidth: "100%",
-            minWidth: 0,
-            overflowX: "auto",
-            WebkitOverflowScrolling: "touch",
-            boxSizing: "border-box",
-            "&::-webkit-scrollbar": { height: "10px" },
-            "&::-webkit-scrollbar-track": {
-              background: isDark ? "#0F1828" : "#f1f5f9",
-              borderRadius: "6px",
-              margin: "0 8px",
-            },
-            "&::-webkit-scrollbar-thumb": {
-              background: alpha(PRIMARY_COLOR, 0.4),
-              borderRadius: "6px",
-              border: `2px solid ${isDark ? "#0F1828" : "#f1f5f9"}`,
-              "&:hover": { background: alpha(PRIMARY_COLOR, 0.7) },
-            },
-          }}
-        >
-          <TableContainer
+      {sprintGroups.length === 0 ? (
+        <Fade in timeout={600}>
+          <Paper
+            elevation={0}
             sx={{
-              ...tableStyles.container,
-              width: "max-content",
-              minWidth: "100%",
-              overflow: "visible",
+              p: 8, textAlign: "center",
+              border: "1px dashed",
+              borderColor: isDark ? "#1e293b" : "#e2e8f0",
+              borderRadius: 3,
+              bgcolor: isDark ? "#0B1220" : "#ffffff",
             }}
           >
-            <Table
-              size={isMobile ? "small" : "medium"}
-              sx={{ minWidth: isMobile ? 700 : 900, tableLayout: "auto" }}
-            >
-              <TableHead>
-                <TableRow>
-                  <TableCell
+            <Typography sx={{ fontSize: isMobile ? 13 : 15, color: isDark ? "#94a3b8" : "#64748b", fontWeight: 500 }}>
+              No Data Found
+            </Typography>
+          </Paper>
+        </Fade>
+      ) : (
+        sprintGroups.map((group, groupIndex) => {
+          const info = sprintInfoData[group.SprintGroupID];
+          const isLoadingInfo = sprintInfoLoading[group.SprintGroupID];
+          const infoError = sprintInfoError[group.SprintGroupID];
+
+          const dynamicColumns = info?.colList || [];
+          const dynamicDetails = info?.detailList || [];
+          const dynamicColValues = info?.colvalueList || [];
+
+          const mergedColumns = buildMergedSprintInfoColumns(dynamicColumns);
+
+          const colValueLookup = new Map<string, ApiSprintInfoColumnValue>();
+          dynamicColValues.forEach((cv) => {
+            colValueLookup.set(`${cv.additionalColumnID}:${cv.sprintID}`, cv);
+          });
+
+          return (
+            <Fade key={group.SprintGroupID} in timeout={500 + groupIndex * 100}>
+              <Box
+                sx={{
+                  mb: 4,
+                  width: "100%",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  overflowX: "hidden",
+                  boxSizing: "border-box",
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }} flexWrap="wrap">
+                  <Box sx={{ width: 28, height: 28, borderRadius: 1.25, bgcolor: alpha(PRIMARY_COLOR, 0.12), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon icon="lucide:git-branch" style={{ fontSize: 15, color: PRIMARY_COLOR }} />
+                  </Box>
+                  <Typography sx={{ fontSize: isMobile ? 13 : 15, fontWeight: 700, color: isDark ? "#ffffff" : "#0f172a", letterSpacing: "0.01em" }}>
+                    {group.GroupName}
+                  </Typography>
+                  <Chip
+                    label={`${dynamicDetails.length} sprint${dynamicDetails.length !== 1 ? "s" : ""}`}
+                    size="small"
+                    sx={{ bgcolor: isDark ? "#1e293b" : "#f1f5f9", color: isDark ? "#94a3b8" : "#64748b", fontWeight: 600, fontSize: 10, height: 22, borderRadius: "6px" }}
+                  />
+                </Stack>
+
+                {isLoadingInfo ? (
+                  <Card elevation={0} sx={{ p: 4, textAlign: "center", border: "1px solid", borderColor: isDark ? "#1e293b" : "#e2e8f0", borderRadius: 3, bgcolor: isDark ? "#0B1220" : "#ffffff" }}>
+                    <CircularProgress size={22} sx={{ color: PRIMARY_COLOR }} />
+                    <Typography sx={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", mt: 1 }}>Loading sprint info...</Typography>
+                  </Card>
+                ) : infoError ? (
+                  <Card elevation={0} sx={{ p: 3, textAlign: "center", border: "1px solid", borderColor: "#ef4444", borderRadius: 3, bgcolor: isDark ? "rgba(239,68,68,0.05)" : "#fef2f2" }}>
+                    <Icon icon="lucide:alert-circle" style={{ fontSize: 24, color: "#ef4444" }} />
+                    <Typography sx={{ fontSize: 12, color: "#ef4444", mt: 1 }}>{infoError}</Typography>
+                  </Card>
+                ) : (
+                  <Box
                     sx={{
-                      ...tableStyles.headCell,
-                      width: 50,
-                      minWidth: 50,
+                      width: "100%",
+                      maxWidth: "100%",
+                      minWidth: 0,
+                      display: "block",
+                      overflowX: "auto",
+                      overflowY: "hidden",
+                      WebkitOverflowScrolling: "touch",
+                      boxSizing: "border-box",
+                      pb: 1,
+                      "&::-webkit-scrollbar": { height: "10px" },
+                      "&::-webkit-scrollbar-track": {
+                        background: isDark ? "#0F1828" : "#f1f5f9",
+                        borderRadius: "6px",
+                        margin: "0 8px",
+                      },
+                      "&::-webkit-scrollbar-thumb": {
+                        background: alpha(PRIMARY_COLOR, 0.4),
+                        borderRadius: "6px",
+                        border: `2px solid ${isDark ? "#0F1828" : "#f1f5f9"}`,
+                        "&:hover": { background: alpha(PRIMARY_COLOR, 0.7) },
+                      },
                     }}
                   >
-                    <Checkbox
-                      size="small"
+                    <TableContainer
                       sx={{
-                        color: isDark ? "#475569" : "#94a3b8",
-                        "&.Mui-checked": { color: PRIMARY_COLOR },
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      ...tableStyles.headCell,
-                      minWidth: isMobile ? 180 : 240,
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    SPRINT
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      ...tableStyles.headCell,
-                      minWidth: isMobile ? 200 : 320,
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    GOALS
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      ...tableStyles.headCell,
-                      minWidth: isMobile ? 180 : 240,
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    SPRINT TIMELINE
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sprints.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      sx={{
-                        py: 8,
-                        textAlign: "center",
-                        borderBottom: "none",
+                        ...tableStyles.container,
+                        width: "max-content",
+                        minWidth: "100%",
+                        overflow: "visible",
                       }}
                     >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 1,
-                        }}
+                      <Table
+                        size={isMobile ? "small" : "medium"}
+                        sx={{ minWidth: isMobile ? 900 : 1100, tableLayout: "auto" }}
                       >
-                        <Typography
-                          sx={{
-                            fontSize: isMobile ? 13 : 15,
-                            color: isDark ? "#94a3b8" : "#64748b",
-                            fontWeight: 500,
-                          }}
-                        >
-                          No Data Found
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sprints.map((sprint, idx) => {
-                    const goalsText = sprint.sprintGoals || "—";
-                    const startDate = sprint.sprintTimeLineStart
-                      ? formatDate(sprint.sprintTimeLineStart)
-                      : "—";
-                    const endDate = sprint.sprintTimelineEnd
-                      ? formatDate(sprint.sprintTimelineEnd)
-                      : "—";
-
-                    return (
-                      <Grow key={sprint.taskGroupID} in timeout={300 + idx * 60}>
-                        <TableRow
-                          sx={{
-                            ...tableStyles.row,
-                            cursor: "pointer",
-                            "&:hover": {
-                              bgcolor: isDark
-                                ? alpha(PRIMARY_COLOR, 0.06)
-                                : alpha(PRIMARY_COLOR, 0.035),
-                            },
-                          }}
-                        >
-                          <TableCell
-                            sx={{
-                              ...tableStyles.bodyCell,
-                              width: 50,
-                              minWidth: 50,
-                            }}
-                          >
-                            <Checkbox
-                              size="small"
-                              sx={{
-                                color: isDark ? "#475569" : "#94a3b8",
-                                "&.Mui-checked": { color: PRIMARY_COLOR },
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell
-                            sx={{
-                              ...tableStyles.bodyCell,
-                              minWidth: isMobile ? 180 : 240,
-                            }}
-                          >
-                            <Typography
-                              sx={{
-                                fontSize: isMobile ? 12 : 14,
-                                fontWeight: 600,
-                                color: isDark ? "#ffffff" : "#0f172a",
-                              }}
-                            >
-                              {sprint.groupname || sprint.sprintname || "Untitled Sprint"}
-                            </Typography>
-                          </TableCell>
-                          <TableCell
-                            sx={{
-                              ...tableStyles.bodyCell,
-                              minWidth: isMobile ? 200 : 320,
-                              maxWidth: 480,
-                            }}
-                          >
-                            <Typography
-                              sx={{
-                                fontSize: isMobile ? 11 : 13,
-                                color: isDark ? "#cbd5e1" : "#334155",
-                                lineHeight: 1.5,
-                                whiteSpace: "normal",
-                              }}
-                            >
-                              {goalsText}
-                            </Typography>
-                          </TableCell>
-                          <TableCell
-                            sx={{
-                              ...tableStyles.bodyCell,
-                              minWidth: isMobile ? 180 : 240,
-                            }}
-                          >
-                            <Stack direction="row" alignItems="center" spacing={0.75}>
-                              <Icon
-                                icon="lucide:calendar"
-                                style={{
-                                  fontSize: 14,
-                                  color: isDark ? "#94a3b8" : "#64748b",
-                                }}
-                              />
-                              <Typography
+                        <TableHead>
+                          <TableRow>
+                            {mergedColumns.map((col) => (
+                              <TableCell
+                                key={col.key}
                                 sx={{
-                                  fontSize: isMobile ? 11 : 12,
-                                  color: isDark ? "#e2e8f0" : "#1e293b",
-                                  fontWeight: 500,
+                                  ...tableStyles.headCell,
+                                  whiteSpace: "nowrap",
+                                  minWidth:
+                                    col.keyname === "SPRINT_NAME" ? 200
+                                    : col.keyname === "GOALS" ? 260
+                                    : col.keyname === "SPRINT_TIMELINE" ? 220
+                                    : col.keyname === "SPRINT_STATUS" || col.keyname === "LBL" ? 130
+                                    : 130,
                                 }}
                               >
-                                {startDate} - {endDate}
-                              </Typography>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      </Grow>
-                    );
-                  })
+                                {col.name}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {dynamicDetails.map((sprint, sprintIdx) => (
+                            <Grow key={sprint.sprintID} in timeout={300 + sprintIdx * 60}>
+                              <TableRow sx={tableStyles.row}>
+                                {mergedColumns.map((col) => {
+                                  const cv = col.isCore
+                                    ? undefined
+                                    : colValueLookup.get(`${col.id}:${sprint.sprintID}`);
+                                  return (
+                                    <TableCell
+                                      key={`${sprint.sprintID}-${col.key}`}
+                                      sx={{
+                                        ...tableStyles.bodyCell,
+                                        whiteSpace:
+                                          col.keyname === "GOALS" || col.keyname === "SPRINT_NAME"
+                                            ? "normal"
+                                            : "nowrap",
+                                        minWidth:
+                                          col.keyname === "SPRINT_NAME" ? 200
+                                          : col.keyname === "GOALS" ? 260
+                                          : col.keyname === "SPRINT_TIMELINE" ? 220
+                                          : col.keyname === "SPRINT_STATUS" || col.keyname === "LBL" ? 130
+                                          : 130,
+                                        maxWidth: col.keyname === "GOALS" ? 400 : col.keyname === "SPRINT_NAME" ? 280 : "none",
+                                      }}
+                                    >
+                                      {getSprintInfoColumnValue(sprint, col, cv, {
+                                        getStatusColor,
+                                        isDark,
+                                        isMobile,
+                                        onFileClick: handleSubTaskFileClick,
+                                      })}
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            </Grow>
+                          ))}
+                          {dynamicDetails.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={mergedColumns.length} sx={{ py: 5, textAlign: "center", borderBottom: "none" }}>
+                                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                                  <Icon icon="lucide:inbox" style={{ fontSize: 32, color: isDark ? "#64748b" : "#94a3b8" }} />
+                                  <Typography sx={{ fontSize: isMobile ? 13 : 14, color: isDark ? "#94a3b8" : "#64748b", fontWeight: 500 }}>
+                                    No Sprints Added
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      </Fade>
+              </Box>
+            </Fade>
+          );
+        })
+      )}
     </Box>
   );
 };
