@@ -150,6 +150,7 @@ const AppSidebar: React.FC = () => {
           {isExpanded || isHovered || isMobileOpen ? (
             <div className="relative">
               <div className="absolute -inset-2 bg-white/10 dark:bg-white/5 rounded-2xl blur-xl opacity-50"></div>
+            <Link to="/dashboard">
               <img
                 className="dark:hidden relative"
                 src="/images/logo/logo-pp.png"
@@ -164,6 +165,7 @@ const AppSidebar: React.FC = () => {
                 width={160}
                 height={45}
               />
+              </Link>
             </div>
           ) : (
             <div className="relative">

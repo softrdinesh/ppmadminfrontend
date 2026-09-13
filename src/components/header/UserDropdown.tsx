@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
+// import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Link } from "react-router";
 import { logout } from "../../utils/auth"; // adjust path as needed
 import { useNavigate } from "react-router";
@@ -17,9 +17,9 @@ const handleLogoutClick = () => {
      setIsActive(true)
   }
 
-  function closeDropdown() {
-    setIsOpen(false);
-  }
+  // function closeDropdown() {
+  //   setIsOpen(false);
+  // }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -92,11 +92,10 @@ const handleLogoutClick = () => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-              John Doe
+             _
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              john@example.com
-            </p>
+_            </p>
             <div className="flex items-center gap-1.5 mt-1">
               {/* <span className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
                 isActive ? "bg-green-500 animate-pulse" : "bg-gray-400"
@@ -108,7 +107,7 @@ const handleLogoutClick = () => {
           </div>
         </div>
 
-        <ul className="flex flex-col gap-1 pt-3 pb-2.5 border-b border-gray-200 dark:border-gray-800">
+        {/* <ul className="flex flex-col gap-1 pt-3 pb-2.5 border-b border-gray-200 dark:border-gray-800">
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -136,7 +135,7 @@ const handleLogoutClick = () => {
           </li>
           
         </ul>
-        
+         */}
         <Link
         to=""
       onClick={handleLogoutClick}

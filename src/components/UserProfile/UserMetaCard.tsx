@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { Avatar, Box, Button, Card, CardContent, Divider, Typography } from '@mui/material'
+import { Avatar, Box,  Card, CardContent, Divider, Typography } from '@mui/material'
 import { Grid2 } from '@mui/material'
 
 import ProfileTabs from './tabs'
@@ -510,7 +510,7 @@ const OverviewCard = ({ data, refetch }: OverviewCardProps) => {
               },
             }}
           >
-            <Button 
+            {/* <Button 
               variant='contained' 
               onClick={() => setOpen(true)}
               sx={{
@@ -582,7 +582,7 @@ const OverviewCard = ({ data, refetch }: OverviewCardProps) => {
               }
             >
               Edit Profile
-            </Button>
+            </Button> */}
           </Box>
         </Box>
       </CardContent>

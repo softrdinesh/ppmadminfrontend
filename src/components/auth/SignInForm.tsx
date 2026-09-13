@@ -669,12 +669,12 @@ console.log(location);
                       </span>
                     }
                   />
-                  <Link
+                  {/* <Link
                     to="/signup"
                     className="text-sm font-medium transition-colors text-[#1878b1] hover:text-[#146393]"
                   >
                     Forgot password?
-                  </Link>
+                  </Link> */}
                 </div>
                 <div
                   className="signin-animate"

@@ -556,154 +556,10 @@ interface WorkspaceTaskGroup {
 
 
 
-interface ApiSubTaskStatus {
-  StatusID: number;
-  Statusname: string;
-  Colorcode: string;
-}
-
-interface ApiSubTaskOwner {
-  Email: string;
-  Name: string;
-  UserID: number;
-  ProfilePicture: string;
-}
-
-interface ApiSubTaskAdditionalValue {
-  DynamicID: number;
-  DynamicColumnValues: string | null;
-  Columntype: number;
-  SubTaskID: number;
-  TaskID: number;
-  ProjectID: number;
-  IsDelete: number;
-  CreateDate: string;
-  CreateBy: number;
-  DeletedDate: string | null;
-  DeletedBy: number | null;
-  WorkspaceID: number;
-  AdditionalColumnID: number;
-  DynamicUserID: number | null;
-  DynamicDropdownID: number | null;
-  StatusID: number | null;
-  DisplayText: string | null;
-  columnType: ApiSubTaskColumnType;
-  User: ApiSubTaskOwner | null;
-  Dropdown: {
-    Dynamic_ddl_ID: number;
-    Valuetxt: string;
-    IsDelete: number;
-    TaskID: number;
-    TaskGroupID: number;
-    WorkspaceID: number;
-    ProjectID: number;
-  } | null;
-  Status: {
-    StatusID: number;
-    Statusname: string;
-    CreateDate?: string;
-    CreatedBy?: number;
-    Colorcode: string;
-    IsDelete: number;
-    IsDefault?: number;
-    TaskgroupID?: number;
-  } | null;
-}
-
-interface ApiSubTask {
-  SubTaskID: number;
-  TaskMasterID: number;
-  SubTaskName: string;
-  SubtaskOwner: number;
-  StatusID: number | null;
-  CreateDate: string;
-  Createby: number;
-  IsDelete: number;
-  DeletedDate: string | null;
-  Deletedby: number | null;
-  Effort: string;
-  TimelineStartDate: string | null;
-  TimelineEndDate: string | null;
-  Status: ApiSubTaskStatus | null;
-  Owner: ApiSubTaskOwner | null;
-  additionalValues: ApiSubTaskAdditionalValue[];
-}
-
-interface ApiSubTaskResponse {
-  status: boolean;
-  statusCode: number;
-  message: string;
-  data: ApiSubTask[];
-}
 
 
 
-interface ApiSubTaskColumnType {
-  ID: number;
-  Title: string;
-  Keyname: string;
-  IsDelete: number;
-}
 
-interface ApiSubTaskColumn {
-  AdditionalColumnID: number;
-  ColumnName: string;
-  AdditionalColumnTypeID: number;
-  CreateBy: number;
-  CreateDate: string;
-  ModifiedDate: string | null;
-  ModifiedBy: number | null;
-  IsDelete: number;
-  DeletedBy: number | null;
-  DeletedDate: string | null;
-  TaskGroupID: number;
-  WorkspaceID: number;
-  ProjectID: number;
-  TaskID: number;
-  ColumnType: ApiSubTaskColumnType;
-}
-
-interface ApiSubTaskColumnResponse {
-  status: boolean;
-  statusCode: number;
-  message: string;
-  data: ApiSubTaskColumn[];
-}
-
-
-interface MergedSubTaskColumn {
-  AdditionalColumnID: number;
-  ColumnName: string;
-  Keyname: string;
-  isCoreField: boolean;
-}
-
-const CORE_COLUMN_IDS = {
-  NAME: -1,
-  OWNER: -2,
-  STATUS: -3,
-  EFFORT: -4,
-  DUE: -5,
-} as const;
-
-const buildMergedColumns = (dynamicColumns: ApiSubTaskColumn[]): MergedSubTaskColumn[] => {
-  const coreColumns: MergedSubTaskColumn[] = [
-    { AdditionalColumnID: CORE_COLUMN_IDS.NAME, ColumnName: "Sub Task", Keyname: "NAME", isCoreField: true },
-    { AdditionalColumnID: CORE_COLUMN_IDS.OWNER, ColumnName: "Owner", Keyname: "OWNER", isCoreField: true },
-    { AdditionalColumnID: CORE_COLUMN_IDS.STATUS, ColumnName: "Status", Keyname: "STATUS", isCoreField: true },
-    { AdditionalColumnID: CORE_COLUMN_IDS.EFFORT, ColumnName: "Effort", Keyname: "EFFORT", isCoreField: true },
-    { AdditionalColumnID: CORE_COLUMN_IDS.DUE, ColumnName: "Due Date", Keyname: "DUE", isCoreField: true },
-  ];
-
-  const dynamicMapped: MergedSubTaskColumn[] = dynamicColumns.map((col) => ({
-    AdditionalColumnID: col.AdditionalColumnID,
-    ColumnName: col.ColumnName,
-    Keyname: col.ColumnType?.Keyname?.toUpperCase?.() || "",
-    isCoreField: false,
-  }));
-
-  return [...coreColumns, ...dynamicMapped];
-};
 
 
 
@@ -919,7 +775,7 @@ const PRIMARY_COLOR = "#1878b2";
 const PRIMARY_DARK = "#0d5a85";
 const apiUrl = import.meta.env.VITE_API_URL;
 const apiUrl1 = import.meta.env.VITE_API_URL1;
-const apiUrl2 = import.meta.env.VITE_API_URL2;
+
 
 console.log(apiUrl1);
 const baseUrl = apiUrl.replace(/\/api\/?$/, "");
@@ -928,8 +784,7 @@ const API_URL = `${baseUrl}/GetOnboardUserDashboard`;
 const USER_PROJECT_LIST_API_URL = `${apiUrl1}GetUserProjectList`;
 const USER_PROJECT_TASK_LIST_API_URL = `${apiUrl1}GetUserProjectTaskList`;
 const WORKSPACE_LIST_API_URL = `${apiUrl1}GetWorkspaceList`;
-const SUBTASK_API_URL = `${apiUrl2}sub-task`;
-const SUBTASK_COLUMN_API_URL = `${apiUrl2}sub-task-column`;
+
 const SPRINT_TASK_GROUP_INFO_API_URL = `${apiUrl1}GetSprintTaskGroupInfoList`;
 const SPRINT_TASK_INFO_API_URL = `${apiUrl1}GetSprintTaskInfoList`;
 const SPRINT_TASK_DYNAMIC_COLUMNS_API_URL = `${apiUrl1}SprintTaskGetDynamicColumList`;
@@ -1229,29 +1084,6 @@ const convertProjectTaskToTask = (apiTask: UserProjectTask): Task => {
   };
 };
 
-const convertApiSubTaskToSubTask = (apiSubTask: ApiSubTask): SubTask => {
-  const statusMap: Record<string, SubTask["status"]> = {
-    "Done": "Done", "In Progress": "In Progress", "In Progess": "In Progress",
-    "To Do": "To Do", "Not Started": "Not Started", "Not started": "Not Started",
-    "Open": "To Do", "Closed": "Done", "Resolved": "Done",
-  };
-
-  const statusName = apiSubTask.Status?.Statusname || "Not Started";
-  const mappedStatus = statusMap[statusName] || "Not Started";
-  const dueDate = apiSubTask.TimelineEndDate ? formatDate(apiSubTask.TimelineEndDate) : "—";
-
-  return {
-    id: `subtask_${apiSubTask.SubTaskID}`,
-    title: apiSubTask.SubTaskName || "Untitled Subtask",
-    owner: apiSubTask.Owner?.Name || "-",
-    plannedEffort: apiSubTask.Effort || "0",
-    status: mappedStatus,
-    type: "General",
-    file: undefined,
-    notes: undefined,
-    dueDate: dueDate,
-  };
-};
 
 
 
@@ -1259,123 +1091,7 @@ interface FileClickHandler {
   (payload: { title: string; url: string }): void;
 }
 
-const getSubTaskColumnValue = (
-  subtask: ApiSubTask,
-  column: MergedSubTaskColumn,
-  onFileClick?: FileClickHandler
-): React.ReactNode => {
-  if (column.isCoreField) {
-    switch (column.Keyname) {
-      case "NAME":
-        return <Typography sx={{ fontSize: 12, fontWeight: 600 }}>{subtask.SubTaskName || "Untitled Subtask"}</Typography>;
 
-      case "OWNER": {
-        const ownerName = subtask.Owner?.Name || "-";
-        const profilePic = subtask.Owner?.ProfilePicture;
-        return (
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <Avatar src={profilePic || undefined} sx={{ width: 20, height: 20, bgcolor: PRIMARY_COLOR, fontSize: 9 }}>
-              {ownerName.charAt(0).toUpperCase()}
-            </Avatar>
-            <Typography sx={{ fontSize: 12 }}>{ownerName}</Typography>
-          </Stack>
-        );
-      }
-
-      case "STATUS": {
-        const statusName = subtask.Status?.Statusname || "Not Started";
-        const color = subtask.Status?.Colorcode || "#6b7280";
-        return (
-          <Chip label={statusName} size="small" sx={{ bgcolor: alpha(color, 0.15), color: color, fontSize: 10, fontWeight: 600, height: 22, borderRadius: "6px", "& .MuiChip-label": { px: 1 } }} />
-        );
-      }
-
-      case "EFFORT":
-        return <Typography sx={{ fontSize: 12 }}>{subtask.Effort || "0"}</Typography>;
-
-      case "DUE": {
-        const dueVal = subtask.TimelineEndDate ? formatDate(subtask.TimelineEndDate) : "—";
-        return <Typography sx={{ fontSize: 12 }}>{dueVal}</Typography>;
-      }
-
-      default:
-        return <Typography sx={{ fontSize: 12 }}>—</Typography>;
-    }
-  }
-
-  const additionalValue = subtask.additionalValues?.find(
-    (av) => av.AdditionalColumnID === column.AdditionalColumnID
-  );
-
-  const keyname =
-    additionalValue?.columnType?.Keyname?.toUpperCase?.() ||
-    column.Keyname?.toUpperCase?.() || "";
-
-  switch (keyname) {
-    case "USR": {
-      const user = additionalValue?.User;
-      const ownerName = user?.Name || subtask.Owner?.Name || "-";
-      const profilePic = user?.ProfilePicture || subtask.Owner?.ProfilePicture;
-      return (
-        <Stack direction="row" alignItems="center" spacing={0.5}>
-          <Avatar src={profilePic || undefined} sx={{ width: 20, height: 20, bgcolor: PRIMARY_COLOR, fontSize: 9 }}>
-            {ownerName.charAt(0).toUpperCase()}
-          </Avatar>
-          <Typography sx={{ fontSize: 12 }}>{ownerName}</Typography>
-        </Stack>
-      );
-    }
-
-    case "DDL": {
-      const value = additionalValue?.Dropdown?.Valuetxt || additionalValue?.DynamicColumnValues || "—";
-      return <Typography sx={{ fontSize: 12 }}>{value}</Typography>;
-    }
-
-    case "LBL": {
-      const statusObj = additionalValue?.Status;
-      const statusName = statusObj?.Statusname || subtask.Status?.Statusname || "Not Started";
-      const color = statusObj?.Colorcode || subtask.Status?.Colorcode || "#6b7280";
-      return (
-        <Chip label={statusName} size="small" sx={{ bgcolor: alpha(color, 0.15), color: color, fontSize: 10, fontWeight: 600, height: 22, borderRadius: "6px", "& .MuiChip-label": { px: 1 } }} />
-      );
-    }
-
-    case "TXT":
-      return <Typography sx={{ fontSize: 12 }}>{additionalValue?.DynamicColumnValues || "—"}</Typography>;
-
-    case "DPK": {
-      const dateVal = additionalValue?.DynamicColumnValues || subtask.TimelineEndDate || subtask.TimelineStartDate;
-      return <Typography sx={{ fontSize: 12 }}>{dateVal ? dateVal : "—"}</Typography>;
-    }
-
-    case "NUM":
-      return <Typography sx={{ fontSize: 12 }}>{additionalValue?.DynamicColumnValues || subtask.Effort || "0"}</Typography>;
-
-    case "FLE": {
-      const fileUrl = additionalValue?.DynamicColumnValues;
-      const displayName = additionalValue?.DisplayText || fileUrl || "—";
-      if (!fileUrl) return <Typography sx={{ fontSize: 12, color: "#94a3b8" }}>—</Typography>;
-      const imageFile = isImageUrl(fileUrl);
-      return (
-        <Button
-          size="small"
-          onClick={(e) => { e.stopPropagation(); onFileClick?.({ title: displayName, url: fileUrl }); }}
-          startIcon={<Icon icon={imageFile ? "lucide:image" : "lucide:file"} style={{ fontSize: 14 }} />}
-          sx={{
-            textTransform: "none", fontSize: 11, fontWeight: 600, color: PRIMARY_COLOR,
-            px: 0.75, py: 0.25, minWidth: 0, borderRadius: "6px", transition: "all 0.25s ease",
-            "&:hover": { color: PRIMARY_DARK, backgroundColor: alpha(PRIMARY_COLOR, 0.1), transform: "translateY(-1px)" },
-          }}
-        >
-          {displayName}
-        </Button>
-      );
-    }
-
-    default:
-      return <Typography sx={{ fontSize: 12 }}>{additionalValue?.DynamicColumnValues || "—"}</Typography>;
-  }
-};
 
 const buildMergedTaskColumns = (
   dynamicColumns: Array<ApiDynamicColumn | ApiSprintDynamicColumn>
@@ -1944,13 +1660,12 @@ export default function DashboardPage() {
   const [projectTasksLoading, setProjectTasksLoading] = useState<boolean>(false);
   const [projectTasksError, setProjectTasksError] = useState<string | null>(null);
 
-  const [subTasks, setSubTasks] = useState<Record<number, SubTask[]>>({});
-  const [subTasksLoading, setSubTasksLoading] = useState<Record<number, boolean>>({});
-
-  const [subTaskColumns, setSubTaskColumns] = useState<Record<number, ApiSubTaskColumn[]>>({});
-  const [subTaskColumnsLoading, setSubTaskColumnsLoading] = useState<Record<number, boolean>>({});
-
-  const [rawSubTasks, setRawSubTasks] = useState<Record<number, ApiSubTask[]>>({});
+  // ❌ REMOVED: subtask state for project view
+  // const [subTasks, setSubTasks] = useState<Record<number, SubTask[]>>({});
+  // const [subTasksLoading, setSubTasksLoading] = useState<Record<number, boolean>>({});
+  // const [subTaskColumns, setSubTaskColumns] = useState<Record<number, ApiSubTaskColumn[]>>({});
+  // const [subTaskColumnsLoading, setSubTaskColumnsLoading] = useState<Record<number, boolean>>({});
+  // const [rawSubTasks, setRawSubTasks] = useState<Record<number, ApiSubTask[]>>({});
 
   const [workspaces, setWorkspaces] = useState<ApiWorkspace[]>([]);
   const [workspacesLoading, setWorkspacesLoading] = useState<boolean>(false);
@@ -1977,12 +1692,10 @@ export default function DashboardPage() {
 
   const [sprintTaskInfo, setSprintTaskInfo] = useState<Record<number, ApiSprintTaskInfoGroup>>({});
   const [sprintTaskInfoLoading, setSprintTaskInfoLoading] = useState<Record<number, boolean>>({});
-  const [sprintTaskInfoError, setSprintTaskInfoError] = useState<Record<number, string | null>>({});
 
   const [sprintDynamicColumns, setSprintDynamicColumns] = useState<Record<number, ApiSprintDynamicColumn[]>>({});
   const [sprintDynamicColumnsLoading, setSprintDynamicColumnsLoading] = useState<Record<number, boolean>>({});
-  const [sprintDynamicColumnsError, setSprintDynamicColumnsError] = useState<Record<number, string | null>>({});
-console.log(sprintTaskInfoError,);
+
 
   const [bugGroups, setBugGroups] = useState<ApiBugGroup[]>([]);
   const [bugGroupsLoading, setBugGroupsLoading] = useState<boolean>(false);
@@ -2320,7 +2033,6 @@ console.log(sprintTaskInfoError,);
     }
 
     setSprintTaskInfoLoading((prev) => ({ ...prev, [taskGroupID]: true }));
-    setSprintTaskInfoError((prev) => ({ ...prev, [taskGroupID]: null }));
 
     try {
       const response = await axios.get<ApiSprintTaskInfoResponse>(
@@ -2347,7 +2059,6 @@ console.log(sprintTaskInfoError,);
       }));
     } catch (err) {
       console.error(`Failed to fetch sprint task info for group ${taskGroupID}:`, err);
-      setSprintTaskInfoError((prev) => ({ ...prev, [taskGroupID]: err instanceof Error ? err.message : "Failed to load task info" }));
       setSprintTaskInfo((prev) => ({ ...prev, [taskGroupID]: { colList: [], detailList: [], colvalueList: [] } }));
     } finally {
       setSprintTaskInfoLoading((prev) => ({ ...prev, [taskGroupID]: false }));
@@ -2366,7 +2077,6 @@ console.log(sprintTaskInfoError,);
     }
 
     setSprintDynamicColumnsLoading((prev) => ({ ...prev, [taskGroupID]: true }));
-    setSprintDynamicColumnsError((prev) => ({ ...prev, [taskGroupID]: null }));
 
     try {
       const response = await axios.get<ApiSprintDynamicColumnList>(
@@ -2379,7 +2089,6 @@ console.log(sprintTaskInfoError,);
       setSprintDynamicColumns((prev) => ({ ...prev, [taskGroupID]: columns }));
     } catch (err) {
       console.error(`Failed to fetch dynamic columns for group ${taskGroupID}:`, err);
-      setSprintDynamicColumnsError((prev) => ({ ...prev, [taskGroupID]: err instanceof Error ? err.message : "Failed to load dynamic columns" }));
       setSprintDynamicColumns((prev) => ({ ...prev, [taskGroupID]: [] }));
     } finally {
       setSprintDynamicColumnsLoading((prev) => ({ ...prev, [taskGroupID]: false }));
@@ -2450,11 +2159,9 @@ console.log(sprintTaskInfoError,);
   useEffect(() => {
     setSprintTaskInfo({});
     setSprintTaskInfoLoading({});
-    setSprintTaskInfoError({});
 
     setSprintDynamicColumns({});
     setSprintDynamicColumnsLoading({});
-    setSprintDynamicColumnsError({});
 
     if (!selectedWorkspace) return;
 
@@ -2576,58 +2283,7 @@ console.log(sprintTaskInfoError,);
     fetchProjectTasks();
   }, [selectedProject, selectedUser, refreshTrigger]);
 
-  // Fetch subtasks
-  const fetchSubTasks = async (taskId: number) => {
-    if (!taskId || isNaN(taskId)) {
-      console.warn("Invalid taskId for subtask fetch:", taskId);
-      return;
-    }
-    if (subTasks[taskId] || subTasksLoading[taskId]) return;
-
-    setSubTasksLoading((prev) => ({ ...prev, [taskId]: true }));
-
-    try {
-      const response = await axios.get<ApiSubTaskResponse>(`${SUBTASK_API_URL}?taskID=${taskId}`);
-
-      const rawData = response.data as any;
-      const apiSubTasks: ApiSubTask[] = Array.isArray(rawData) ? rawData : rawData?.data || [];
-
-      const convertedSubTasks = apiSubTasks.map(convertApiSubTaskToSubTask);
-      setSubTasks((prev) => ({ ...prev, [taskId]: convertedSubTasks }));
-      setRawSubTasks((prev) => ({ ...prev, [taskId]: apiSubTasks }));
-    } catch (err) {
-      console.error("Failed to fetch subtasks:", err);
-      setSubTasks((prev) => ({ ...prev, [taskId]: [] }));
-      setRawSubTasks((prev) => ({ ...prev, [taskId]: [] }));
-    } finally {
-      setSubTasksLoading((prev) => ({ ...prev, [taskId]: false }));
-    }
-  };
-
-  // Fetch dynamic sub-task columns
-  const fetchSubTaskColumns = async (taskId: number) => {
-    if (!taskId || isNaN(taskId)) {
-      console.warn("Invalid taskId for subtask column fetch:", taskId);
-      return;
-    }
-    if (subTaskColumns[taskId] || subTaskColumnsLoading[taskId]) return;
-
-    setSubTaskColumnsLoading((prev) => ({ ...prev, [taskId]: true }));
-
-    try {
-      const response = await axios.get<ApiSubTaskColumnResponse>(`${SUBTASK_COLUMN_API_URL}?taskID=${taskId}`);
-
-      const rawData = response.data as any;
-      const columns: ApiSubTaskColumn[] = Array.isArray(rawData) ? rawData : rawData?.data || [];
-
-      setSubTaskColumns((prev) => ({ ...prev, [taskId]: columns }));
-    } catch (err) {
-      console.error("Failed to fetch subtask columns:", err);
-      setSubTaskColumns((prev) => ({ ...prev, [taskId]: [] }));
-    } finally {
-      setSubTaskColumnsLoading((prev) => ({ ...prev, [taskId]: false }));
-    }
-  };
+  // ❌ REMOVED: fetchSubTasks and fetchSubTaskColumns functions (project view no longer uses subtasks)
 
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -2693,27 +2349,14 @@ console.log(sprintTaskInfoError,);
     setProjectTasks([]);
   };
 
+  // ❌ REMOVED: handleTaskClick subtask fetching - now just toggles task expansion
   const handleTaskClick = (task: Task) => {
     console.log("Task clicked:", task.id, task.title);
     const isExpanding = selectedTask?.id !== task.id;
     setSelectedTask(isExpanding ? task : null);
-
-    if (isExpanding) {
-      const taskIdMatch = task.id.match(/task_(\d+)/);
-      const numericTaskId = taskIdMatch ? parseInt(taskIdMatch[1]) : null;
-      console.log("Extracted numeric task ID:", numericTaskId);
-      if (numericTaskId) {
-        fetchSubTasks(numericTaskId);
-        fetchSubTaskColumns(numericTaskId);
-      }
-    }
+    // ❌ REMOVED: subtask fetching logic
   };
 
-  const handleArrowClick = (e: React.MouseEvent<HTMLElement>, task: Task) => {
-    e.stopPropagation();
-    e.preventDefault();
-    handleTaskClick(task);
-  };
 
   const handleBugCardClick = (bug: Bug) => {
     setSelectedBugCard(selectedBugCard?.id === bug.id ? null : bug);
@@ -2804,10 +2447,8 @@ const handleSprintClick = (sprint: Sprint) => {
     setSprintTaskGroupInfoError(null);
     setSprintTaskInfo({});
     setSprintTaskInfoLoading({});
-    setSprintTaskInfoError({});
     setSprintDynamicColumns({});
     setSprintDynamicColumnsLoading({});
-    setSprintDynamicColumnsError({});
     // ✅ NEW: reset sprint groups state
     setSprintGroups([]);
     setSprintGroupsLoading(false);
@@ -2850,10 +2491,8 @@ const handleSprintClick = (sprint: Sprint) => {
     setBugInfoLoading({});
     setBugInfoError({});
     setSprintTaskInfoLoading({});
-    setSprintTaskInfoError({});
     setSprintDynamicColumns({});
     setSprintDynamicColumnsLoading({});
-    setSprintDynamicColumnsError({});
     // ✅ NEW: reset sprint groups state
     setSprintGroups([]);
     setSprintGroupsLoading(false);
@@ -2992,9 +2631,7 @@ const handleSprintClick = (sprint: Sprint) => {
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Chip label="Workspace" size="small" sx={{ bgcolor: getStatusColor("active") + "20", color: getStatusColor("active"), ...tableStyles.chip }} />
-                    <Typography sx={{ fontSize: isMobile ? 9 : 11, color: isDark ? "#94a3b8" : "#64748b" }}>
-                      Org #{ws.organizationID}
-                    </Typography>
+                   
                   </Box>
                 </Card>
               </Slide>
@@ -4418,15 +4055,6 @@ const renderSprintTableForWorkspace = () => {
                   </TableHead>
                   <TableBody>
                     {allTasks.slice(0, isMobile ? 5 : 10).map((task) => {
-                      const taskIdMatch = task.id.match(/task_(\d+)/);
-                      const numericTaskId = taskIdMatch ? parseInt(taskIdMatch[1]) : 0;
-                      const taskSubTasks = subTasks[numericTaskId] || [];
-                      const isLoadingSubTasks = subTasksLoading[numericTaskId] || false;
-
-                      const taskColumns = buildMergedColumns(subTaskColumns[numericTaskId] || []);
-                      const isLoadingColumns = subTaskColumnsLoading[numericTaskId] || false;
-                      const rawSubTaskList = rawSubTasks[numericTaskId] || [];
-
                       const isExpanded = selectedTask?.id === task.id;
 
                       return (
@@ -4441,23 +4069,7 @@ const renderSprintTableForWorkspace = () => {
                           >
                             <TableCell sx={{ ...tableStyles.bodyCell, width: "28%" }}>
                               <Stack direction="row" alignItems="center" spacing={1.5}>
-                                <Box
-                                  onClick={(e) => handleArrowClick(e, task)}
-                                  sx={{
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    width: 24, height: 24, borderRadius: "50%", cursor: "pointer",
-                                    flexShrink: 0,
-                                    bgcolor: isExpanded ? alpha(PRIMARY_COLOR, 0.12) : "transparent",
-                                    "&:hover": { backgroundColor: alpha(PRIMARY_COLOR, 0.15), transform: "scale(1.15)" },
-                                  }}
-                                >
-                                  <Icon
-                                    icon={isExpanded ? "lucide:chevron-down" : "lucide:chevron-right"}
-                                    style={{ fontSize: 16, color: isExpanded ? PRIMARY_COLOR : isDark ? "#94a3b8" : "#64748b" }}
-                                  />
-                                </Box>
                                 <Typography
-                                  onClick={(e) => handleArrowClick(e, task)}
                                   sx={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: isDark ? "#ffffff" : "#0f172a", cursor: "pointer", "&:hover": { color: PRIMARY_COLOR } }}
                                 >
                                   {task.title}
@@ -4519,97 +4131,7 @@ const renderSprintTableForWorkspace = () => {
                             )}
                           </TableRow>
 
-                          {isExpanded && (
-                            <TableRow>
-                              <TableCell colSpan={isMobile ? 4 : 9} sx={{ p: 0 }}>
-                                <Box sx={{ p: isMobile ? 1.5 : 2.5, bgcolor: isDark ? alpha(PRIMARY_COLOR, 0.04) : alpha(PRIMARY_COLOR, 0.02), borderTop: `1px solid ${isDark ? "#1e293b" : "#e2e8f0"}`, overflowX: "auto" }}>
-                                  <Typography sx={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: isDark ? "#94a3b8" : "#64748b", mb: 1.5 }}>Sub Tasks</Typography>
-                                  {isLoadingSubTasks || isLoadingColumns ? (
-                                    <Box sx={{ py: 2, textAlign: "center" }}>
-                                      <CircularProgress size={20} sx={{ color: PRIMARY_COLOR }} />
-                                      <Typography sx={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", mt: 1 }}>Loading subtasks...</Typography>
-                                    </Box>
-                                  ) : (
-                                    <>
-                                      {taskColumns.length > 0 ? (
-                                        <Box sx={{ overflowX: "auto" }}>
-                                          <TableContainer sx={{ border: "1px solid", borderColor: isDark ? "#1e293b" : "#e2e8f0", borderRadius: "12px", bgcolor: isDark ? "#0B1220" : "#ffffff", overflow: "hidden" }}>
-                                            <Table size="small">
-                                              <TableHead>
-                                                <TableRow>
-                                                  {taskColumns.map((col) => (
-                                                    <TableCell key={col.AdditionalColumnID} sx={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: isDark ? "#94a3b8" : "#64748b", py: 1.25, px: 1.5, borderBottom: `1px solid ${isDark ? "#1e293b" : "#e2e8f0"}`, bgcolor: isDark ? "#0F1828" : "#f8fafc", whiteSpace: "nowrap" }}>
-                                                      {col.ColumnName}
-                                                    </TableCell>
-                                                  ))}
-                                                </TableRow>
-                                              </TableHead>
-                                              <TableBody>
-                                                {rawSubTaskList.map((subtask, idx) => (
-                                                  <Grow key={subtask.SubTaskID} in timeout={300 + idx * 100}>
-                                                    <TableRow sx={{ "&:hover": { bgcolor: isDark ? alpha(PRIMARY_COLOR, 0.06) : alpha(PRIMARY_COLOR, 0.03) }, "&:last-child td": { borderBottom: "none" } }}>
-                                                      {taskColumns.map((col) => (
-                                                        <TableCell key={`${subtask.SubTaskID}-${col.AdditionalColumnID}`} sx={{ fontSize: isMobile ? 10 : 12, color: isDark ? "#e2e8f0" : "#1e293b", py: 1.25, px: 1.5, borderBottom: `1px solid ${isDark ? "#1e293b" : "#f1f5f9"}`, verticalAlign: "middle" }}>
-                                                          {getSubTaskColumnValue(subtask, col, handleSubTaskFileClick)}
-                                                        </TableCell>
-                                                      ))}
-                                                    </TableRow>
-                                                  </Grow>
-                                                ))}
-                                                {rawSubTaskList.length === 0 && (
-                                                  <TableRow>
-                                                    <TableCell colSpan={taskColumns.length} sx={{ py: 2, textAlign: "center" }}>
-                                                      <Typography sx={{ fontSize: 11, color: isDark ? "#64748b" : "#94a3b8" }}>No subtasks found for this task.</Typography>
-                                                    </TableCell>
-                                                  </TableRow>
-                                                )}
-                                              </TableBody>
-                                            </Table>
-                                          </TableContainer>
-                                        </Box>
-                                      ) : (
-                                        <>
-                                          <Grid container spacing={1} sx={{ mb: 1, pb: 1, borderBottom: `1px solid ${isDark ? "#1e293b" : "#e2e8f0"}` }}>
-                                            <Grid item xs={isMobile ? 4 : 3}><Typography sx={{ fontSize: isMobile ? 8 : 10, fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Sub Task</Typography></Grid>
-                                            <Grid item xs={isMobile ? 2 : 2}><Typography sx={{ fontSize: isMobile ? 8 : 10, fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Owner</Typography></Grid>
-                                            <Grid item xs={isMobile ? 2 : 2}><Typography sx={{ fontSize: isMobile ? 8 : 10, fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Planned Effort</Typography></Grid>
-                                            <Grid item xs={isMobile ? 2 : 2}><Typography sx={{ fontSize: isMobile ? 8 : 10, fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</Typography></Grid>
-                                          </Grid>
-                                          {taskSubTasks.map((subtask, idx) => (
-                                            <Grow key={subtask.id} in timeout={300 + idx * 100}>
-                                              <Grid container spacing={1} sx={{ py: isMobile ? 1 : 1.25, borderBottom: idx < taskSubTasks.length - 1 ? `1px solid ${isDark ? "#1e293b" : "#f1f5f9"}` : "none", borderRadius: 1, "&:hover": { bgcolor: isDark ? alpha(PRIMARY_COLOR, 0.06) : alpha(PRIMARY_COLOR, 0.03) } }}>
-                                                <Grid item xs={isMobile ? 4 : 3}>
-                                                  <Stack direction="row" alignItems="center" spacing={1}>
-                                                    <Icon icon="lucide:trash-2" style={{ fontSize: 14, color: "#ef4444" }} />
-                                                    <Typography sx={{ fontSize: isMobile ? 9 : 12, color: isDark ? "#ffffff" : "#0f172a" }}>{subtask.title}</Typography>
-                                                  </Stack>
-                                                </Grid>
-                                                <Grid item xs={isMobile ? 2 : 2}>
-                                                  <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                    <Avatar sx={{ width: 20, height: 20, bgcolor: PRIMARY_COLOR, fontSize: 9 }}>{subtask.owner.charAt(0).toUpperCase()}</Avatar>
-                                                    <Typography sx={{ fontSize: isMobile ? 9 : 12, color: isDark ? "#94a3b8" : "#64748b" }}>{subtask.owner}</Typography>
-                                                  </Stack>
-                                                </Grid>
-                                                <Grid item xs={isMobile ? 2 : 2}><Typography sx={{ fontSize: isMobile ? 9 : 12, color: isDark ? "#94a3b8" : "#64748b" }}>{subtask.plannedEffort}</Typography></Grid>
-                                                <Grid item xs={isMobile ? 2 : 2}>
-                                                  <Chip label={subtask.status} size="small" sx={{ bgcolor: getStatusColor(subtask.status) + "20", color: getStatusColor(subtask.status), ...tableStyles.chip }} />
-                                                </Grid>
-                                              </Grid>
-                                            </Grow>
-                                          ))}
-                                          {taskSubTasks.length === 0 && (
-                                            <Box sx={{ py: 2, textAlign: "center" }}>
-                                              <Typography sx={{ fontSize: 11, color: isDark ? "#64748b" : "#94a3b8" }}>No subtasks found for this task.</Typography>
-                                            </Box>
-                                          )}
-                                        </>
-                                      )}
-                                    </>
-                                  )}
-                                </Box>
-                              </TableCell>
-                            </TableRow>
-                          )}
+                          {/* ❌ REMOVED: expanded subtask row (isExpanded && <TableRow>...</TableRow>) */}
                         </React.Fragment>
                       );
                     })}
@@ -4974,8 +4496,8 @@ const renderSprintTableForWorkspace = () => {
     <>
       <Fade in timeout={600}>
         <Box sx={{ overflowX: "auto" }}>
-          <TableContainer sx={{ ...tableStyles.container, minWidth: isMobile ? "700px" : "auto" }}>
-            <Table size={isMobile ? "small" : "medium"}>
+<TableContainer sx={{ ...tableStyles.container, minWidth: isMobile ? "560px" : "auto" }}>
+              <Table size={isMobile ? "small" : "medium"}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={tableStyles.headCell}>User</TableCell>
@@ -5144,18 +4666,9 @@ const renderSprintTableForWorkspace = () => {
                   </Box>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Icon icon="lucide:git-branch" style={{ fontSize: isMobile ? 10 : 14, color: isDark ? "#64748b" : "#94a3b8" }} />
-                      <Typography sx={{ fontSize: isMobile ? 9 : 12, color: isDark ? "#94a3b8" : "#64748b" }}>{project.sprints.length} sprints</Typography>
-                      <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: isDark ? "#1e293b" : "#e2e8f0" }} />
-                      <Icon icon="lucide:bug" style={{ fontSize: isMobile ? 10 : 14, color: isDark ? "#64748b" : "#94a3b8" }} />
-                      <Typography sx={{ fontSize: isMobile ? 9 : 12, color: isDark ? "#94a3b8" : "#64748b" }}>{project.bugs.filter(b => b.status === "open").length} bugs</Typography>
+                      
                     </Stack>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <Box sx={{ width: isMobile ? 30 : 60, height: 4, borderRadius: 2, bgcolor: isDark ? "#1e293b" : "#e2e8f0", overflow: "hidden" }}>
-                        <Box sx={{ width: `${project.progress}%`, height: "100%", bgcolor: PRIMARY_COLOR, borderRadius: 2, transition: "width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)" }} />
-                      </Box>
-                      <Typography sx={{ fontSize: isMobile ? 8 : 11, color: isDark ? "#94a3b8" : "#64748b", fontWeight: 600 }}>{project.progress}%</Typography>
-                    </Box>
+                  
                   </Box>
                 </Card>
               </Grow>
