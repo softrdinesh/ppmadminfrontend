@@ -119,10 +119,11 @@ interface ApiSprintTaskGroupInfo {
 
 
 
+// ✅ FIXED: Sprint Group interface now matches GetSprintGroups API response (lowercase keys)
 interface ApiSprintGroup {
-  SprintGroupID: number;
-  GroupName: string;
-  WorkspaceID: number;
+  sprintGroupID: number;
+  groupName: string;
+  workspaceID: number;
 }
 
 
@@ -776,7 +777,7 @@ const PRIMARY_DARK = "#0d5a85";
 const apiUrl = import.meta.env.VITE_API_URL;
 const apiUrl1 = import.meta.env.VITE_API_URL1;
 
-
+const apiUrl0 = import.meta.env.VITE_API_URL0;
 console.log(apiUrl1);
 const baseUrl = apiUrl.replace(/\/api\/?$/, "");
 console.log(baseUrl);
@@ -790,8 +791,8 @@ const SPRINT_TASK_INFO_API_URL = `${apiUrl1}GetSprintTaskInfoList`;
 const SPRINT_TASK_DYNAMIC_COLUMNS_API_URL = `${apiUrl1}SprintTaskGetDynamicColumList`;
 const BUG_GROUP_LIST_API_URL = `${apiUrl1}GetBuggroupList`;
 const BUG_INFO_LIST_API_URL = `${apiUrl1}GetBugInfoList`;
-// ✅ NEW: Sprint Group API (returns groups for a workspace)
-const SPRINT_GROUP_API_URL = `http://localhost:8080/api/sprint-group`;
+// ✅ FIXED: Sprint Group API now points to GetSprintGroups endpoint
+const SPRINT_GROUP_API_URL = `${apiUrl0}GetSprintGroups`;
 // ✅ NEW: GetSprintInfoList API
 const SPRINT_INFO_API_URL = `${apiUrl1}GetSprintInfoList`;
 const AVATAR_COLORS = [
@@ -1680,7 +1681,7 @@ export default function DashboardPage() {
   const [sprintTaskGroupInfoLoading, setSprintTaskGroupInfoLoading] = useState<boolean>(false);
   const [sprintTaskGroupInfoError, setSprintTaskGroupInfoError] = useState<string | null>(null);
 
-  // ✅ NEW: Sprint Group state (from /api/sprint-group)
+  // ✅ FIXED: Sprint Group state (from GetSprintGroups)
   const [sprintGroups, setSprintGroups] = useState<ApiSprintGroup[]>([]);
   const [sprintGroupsLoading, setSprintGroupsLoading] = useState<boolean>(false);
   const [sprintGroupsError, setSprintGroupsError] = useState<string | null>(null);
@@ -1890,7 +1891,7 @@ export default function DashboardPage() {
     fetchSprintTaskGroupInfo();
   }, [selectedWorkspace, refreshTrigger]);
 
-  // ✅ NEW: Fetch sprint groups from /api/sprint-group?workspaceID=X
+  // ✅ FIXED: Fetch sprint groups from GetSprintGroups?WorkspaceID=X
   useEffect(() => {
     const fetchSprintGroups = async () => {
       if (!selectedWorkspace) {
@@ -1903,8 +1904,8 @@ export default function DashboardPage() {
       setSprintGroupsError(null);
 
       try {
-        const response = await axios.get<{ status: boolean; statusCode: number; message: string; data: ApiSprintGroup[] }>(
-          `${SPRINT_GROUP_API_URL}?workspaceID=${selectedWorkspace.workspaceID}`
+        const response = await axios.get<ApiSprintGroup[]>(
+          `${SPRINT_GROUP_API_URL}?WorkspaceID=${selectedWorkspace.workspaceID}`
         );
 
         const raw = response.data as any;
@@ -1912,6 +1913,8 @@ export default function DashboardPage() {
           ? raw.data
           : Array.isArray(raw)
           ? raw
+          : Array.isArray(raw?.value)
+          ? raw.value
           : [];
 
         setSprintGroups(groups);
@@ -1978,7 +1981,7 @@ export default function DashboardPage() {
     }
   };
 
-  // ✅ NEW: Auto-fetch GetSprintInfoList whenever sprintGroups changes
+  // ✅ FIXED: Auto-fetch GetSprintInfoList whenever sprintGroups changes
   useEffect(() => {
     setSprintInfoData({});
     setSprintInfoLoading({});
@@ -1987,7 +1990,7 @@ export default function DashboardPage() {
     if (sprintGroups.length === 0) return;
 
     sprintGroups.forEach((g) => {
-      fetchSprintInfo(g.SprintGroupID);
+      fetchSprintInfo(g.sprintGroupID);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sprintGroups, refreshTrigger]);
@@ -2398,13 +2401,13 @@ const handleSprintClick = (sprint: Sprint) => {
       setSprintTaskGroupInfoLoading(false);
     });
 
-  // ✅ NEW: Also fetch sprint groups from /api/sprint-group?workspaceID=X
+  // ✅ FIXED: Also fetch sprint groups from GetSprintGroups?WorkspaceID=X
   setSprintGroupsLoading(true);
   setSprintGroupsError(null);
 
   axios
-    .get<{ status: boolean; statusCode: number; message: string; data: ApiSprintGroup[] }>(
-      `${SPRINT_GROUP_API_URL}?workspaceID=${numericId}`
+    .get<ApiSprintGroup[]>(
+      `${SPRINT_GROUP_API_URL}?WorkspaceID=${numericId}`
     )
     .then((res) => {
       const raw = res.data as any;
@@ -2412,6 +2415,8 @@ const handleSprintClick = (sprint: Sprint) => {
         ? raw.data
         : Array.isArray(raw)
         ? raw
+        : Array.isArray(raw?.value)
+        ? raw.value
         : [];
       setSprintGroups(groups);
     })
@@ -3445,9 +3450,10 @@ const renderSprintTableForWorkspace = () => {
         </Fade>
       ) : (
         sprintGroups.map((group, groupIndex) => {
-          const info = sprintInfoData[group.SprintGroupID];
-          const isLoadingInfo = sprintInfoLoading[group.SprintGroupID];
-          const infoError = sprintInfoError[group.SprintGroupID];
+          // ✅ FIXED: use lowercase fields from GetSprintGroups API
+          const info = sprintInfoData[group.sprintGroupID];
+          const isLoadingInfo = sprintInfoLoading[group.sprintGroupID];
+          const infoError = sprintInfoError[group.sprintGroupID];
 
           const dynamicColumns = info?.colList || [];
           const dynamicDetails = info?.detailList || [];
@@ -3461,7 +3467,7 @@ const renderSprintTableForWorkspace = () => {
           });
 
           return (
-            <Fade key={group.SprintGroupID} in timeout={500 + groupIndex * 100}>
+            <Fade key={group.sprintGroupID} in timeout={500 + groupIndex * 100}>
               <Box
                 sx={{
                   mb: 4,
@@ -3477,7 +3483,7 @@ const renderSprintTableForWorkspace = () => {
                     <Icon icon="lucide:git-branch" style={{ fontSize: 15, color: PRIMARY_COLOR }} />
                   </Box>
                   <Typography sx={{ fontSize: isMobile ? 13 : 15, fontWeight: 700, color: isDark ? "#ffffff" : "#0f172a", letterSpacing: "0.01em" }}>
-                    {group.GroupName}
+                    {group.groupName}
                   </Typography>
                   <Chip
                     label={`${dynamicDetails.length} sprint${dynamicDetails.length !== 1 ? "s" : ""}`}
